@@ -1,0 +1,103 @@
+/* Copyright (c) 1997-2017, FenixOS Developers
+   All Rights Reserved.
+
+   This file is subject to the terms and conditions defined in
+   file 'LICENSE', which is part of this source code package.
+ */
+
+/*! \file video.c This file holds implementations of functions
+  presenting output to the VGA screen. */
+#include <stdint.h>
+
+/*! Max number of columns in the VGA buffer. */
+#define MAX_COLS                (80)
+/*! Max number of columns in the VGA buffer. */
+#define MAX_ROWS                (25)
+
+struct screen_position
+{
+ unsigned char character; /*!< The character part of the byte tuple used for
+                               each screen position. */
+ unsigned char attribute; /*!< The character part of the byte tuple used for
+                               each screen position. */
+};
+/*!< Defines a VGA text mode screen position. */
+
+struct screen
+{
+ struct screen_position positions[MAX_ROWS][MAX_COLS];
+ /*!< The VGA screen. It is organized as a two dimensional array. */
+};
+/*!< Defines a VGA text mode screen. */
+
+/*! points to the VGA screen. */
+static struct screen* const
+screen_pointer = (struct screen*) 0xB8000;
+
+void
+kprints(const char* string)
+{
+  int i, j, last_row, last_column, colour;
+  //For now, we don't know last location - we'll have to look it up
+  last_row = -1;
+  last_column = -1;
+
+  colour = 0x0f; //White text on black background
+
+  for(i=0, j=0;i<MAX_ROWS && j<MAX_COLS; i++){
+    if(screen_pointer->positions[i][j].character == 0){
+      last_row = i;
+      last_column = j;
+      break;
+    }
+    //Move to next row
+    if(i == MAX_ROWS - 1)
+    {
+      i = -1;
+      j++;
+    }
+  }
+
+  if(last_row == -1) //In case we have no space left
+    return;
+  
+  for(i=0;string[i]!='\0';i++){
+    if(string[i] != '\n'){
+    screen_pointer->positions[last_row][last_column].character = string[i];
+    screen_pointer->positions[last_row][last_column].attribute = colour;
+    last_row++;
+    }
+    if(last_row == MAX_ROWS || string[i] == '\n'){
+      last_row = 0;
+      last_column++;
+    }
+    if(last_column == MAX_COLS){
+      break;
+    }
+  }
+}
+
+void
+kprinthex(const register uint32_t value)
+{
+ /* Implement me! */
+  int mask, i, copy, current;
+  char string[11] = "0xgggggggg"; //8 digits + "0x" + '\0'
+  mask = 15;
+  copy = value;
+
+  //Transform the number into a string
+  for(i=0;i<8;i++){
+    current = copy | mask;
+    if(current < 10){
+      string[9-i] = '0'+current;
+    } else{
+      string[9-1] = 'A' - 10 + current;
+    }
+    copy = copy >> 4;
+  }
+
+  //Print the string
+  kprints(string);
+  
+}
